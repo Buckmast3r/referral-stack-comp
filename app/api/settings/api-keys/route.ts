@@ -1,25 +1,33 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
+import { createApiKeySchema } from '@/schemas/api-keys';
+import { errorResponse, successResponse } from '@/utils/response';
+import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { formatZodError, validateApiKey } from '@/utils/validation';
+
+const crypto = require('crypto');
+const randomBytes = crypto.randomBytes;
+
 // POST (create) API key
-export async function POST(req: NextRequest) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const body = await req.json();
+    const { apiKey } = req.body;
     
     // Validate input
-    const validated = createApiKeySchema.safeParse(body);
+    const validated = createApiKeySchema.safeParse(req.body);
     if (!validated.success) {
-      return NextResponse.json(
-        errorResponse('Invalid input', formatZodError(validated.error)),
-        { status: 400 }
+      return res.status(400).json(
+        errorResponse('Invalid input', formatZodError(validated.error))
       );
     }
     
     // Get current user
-    const supabase = createServerSupabaseClient();
+    const supabase = createServerSupabaseClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return NextResponse.json(
-        errorResponse('Authentication required'),
-        { status: 401 }
+      return res.status(401).json(
+        errorResponse('Authentication required')
       );
     }
     
@@ -35,9 +43,8 @@ export async function POST(req: NextRequest) {
     const isPro = userData?.subscription_tier === 'pro';
     
     if (!isPro) {
-      return NextResponse.json(
-        errorResponse('Pro subscription required for API access'),
-        { status: 403 }
+      return res.status(403).json(
+        errorResponse('Pro subscription required for API access')
       );
     }
     
@@ -48,14 +55,13 @@ export async function POST(req: NextRequest) {
       .single();
     
     if (!settings?.api_access) {
-      return NextResponse.json(
-        errorResponse('API access is not enabled in your settings'),
-        { status: 403 }
+      return res.status(403).json(
+        errorResponse('API access is not enabled in your settings')
       );
     }
     
     // Generate a random API key
-    const apiKey = `ref_${crypto.randomBytes(24).toString('hex')}`;
+    const generatedApiKey = `ref_${randomBytes(24).toString('hex')}`;
     
     // Create the API key record
     const { data: newKey, error } = await supabase
@@ -63,7 +69,7 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: userId,
         key_name: validated.data.key_name,
-        api_key: apiKey,
+        api_key: generatedApiKey,
         permissions: validated.data.permissions || {},
         expires_at: validated.data.expires_at,
         is_active: true
@@ -72,25 +78,22 @@ export async function POST(req: NextRequest) {
       .single();
     
     if (error) {
-      return NextResponse.json(
-        errorResponse('Failed to create API key', { general: [error.message] }),
-        { status: 500 }
+      return res.status(500).json(
+        errorResponse('Failed to create API key', { general: [error.message] })
       );
     }
     
     // Return the key - this is the only time the full key will be visible
-    return NextResponse.json(
+    return res.status(201).json(
       successResponse({
         ...newKey,
-        api_key: apiKey
-      }, 'API key created successfully'),
-      { status: 201 }
+        api_key: generatedApiKey
+      }, 'API key created successfully')
     );
   } catch (error) {
     console.error('Error creating API key:', error);
-    return NextResponse.json(
-      errorResponse('An unexpected error occurred'),
-      { status: 500 }
+    return res.status(500).json(
+      errorResponse('An unexpected error occurred')
     );
   }
 }
