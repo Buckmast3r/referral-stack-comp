@@ -1,5 +1,5 @@
 import { createBrowserClient, createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies as nextCookies } from 'next/headers';
 import type { Database } from '@/types/database';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -21,16 +21,14 @@ export const supabaseAdmin = createServerClient<Database>(
 
 // Create a server-side Supabase client
 export const createServerSupabaseClient = () => {
-  const cookieStore = cookies();
-  
+  const cookieStore = nextCookies();
+
   return createServerClient<Database>(
     supabaseUrl,
     supabaseAnonKey,
     {
       cookies: {
-        get: (name: string) => {
-          return cookieStore.get(name)?.value;
-        },
+        get: (name: string) => cookieStore.get(name)?.value,
         set: (name: string, value: string, options: CookieOptions) => {
           cookieStore.set({ name, value, ...options });
         },

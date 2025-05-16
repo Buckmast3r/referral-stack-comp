@@ -1,4 +1,4 @@
-import { ZodError } from 'zod';
+import { ZodError, ZodIssue } from 'zod';
 
 export type ApiResponse<T = any> = {
   success: boolean;
@@ -26,12 +26,12 @@ export function errorResponse(message: string, errors?: Record<string, string[]>
 export function formatZodError(error: ZodError): Record<string, string[]> {
   const formattedErrors: Record<string, string[]> = {};
   
-  error.errors.forEach((err: { path: string[]; message: string }) => {
-    const path = err.path.join('.');
+  error.issues.forEach((issue: ZodIssue) => {
+    const path = issue.path.map(p => p.toString()).join('.');
     if (!formattedErrors[path]) {
       formattedErrors[path] = [];
     }
-    formattedErrors[path].push(err.message);
+    formattedErrors[path].push(issue.message);
   });
   
   return formattedErrors;

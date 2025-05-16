@@ -5,7 +5,7 @@ import { errorResponse, successResponse } from '@/lib/api-utils';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16'
+  apiVersion: '2023-08-16' // Use the version compatible with your installed Stripe package
 });
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Get the current user
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServerSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
