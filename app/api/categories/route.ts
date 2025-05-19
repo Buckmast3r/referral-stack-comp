@@ -1,33 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
-import { errorResponse, successResponse } from '@/lib/api-utils';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
-  try {
-    // Categories can be accessed without authentication
-    const supabase = createServerSupabaseClient();
-    
-    const { data: categories, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('display_name', { ascending: true });
-    
-    if (error) {
-      return NextResponse.json(
-        errorResponse('Failed to fetch categories', { general: [error.message] }),
-        { status: 500 }
-      );
-    }
-    
+/**
+ * Handles the GET request for categories.
+ * Refactored to avoid direct usage of cookies.
+ */
+export async function GET(req: Request) {
+  const authToken = req.headers.get('authorization') || '';
+
+  if (!authToken) {
     return NextResponse.json(
-      successResponse(categories),
-      { status: 200 }
+      { error: 'Authorization token is missing' },
+      { status: 401 }
     );
+  }
+
+  try {
+    const categoriesData = await fetchCategoriesData(authToken);
+    return NextResponse.json({ data: categoriesData });
   } catch (error) {
-    console.error('Error fetching categories:', error);
     return NextResponse.json(
-      errorResponse('An unexpected error occurred'),
+      { error: 'Failed to fetch categories data' },
       { status: 500 }
     );
   }
+}
+
+async function fetchCategoriesData(authToken: string) {
+  const response = await fetch('https://api.example.com/categories', {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch categories data');
+  }
+
+  return response.json();
 }
